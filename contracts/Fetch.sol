@@ -14,34 +14,40 @@ contract Fetch is Ownable {
   using SafeERC20 for IERC20;
   using SafeMath for uint256;
   address public WETH;
-  address public pancakeRouter;
+  address public dexRouter;
 
-  address public stake;
+  address public stakeAddress;
 
   address public token;
-  address public uniPair;
+  address public dexPair;
+
+  uint256 public burnPercent = 10;
+
+  bool public isBurnable = false;
 
   /**
   * @dev constructor
   *
-  * @param _stake                 address of claim able stake
-  * @param _token                 address of underlying token
-  * @param _uniPair               address of pool pair
+  * @param _WETH                  address of Wrapped Ethereum token
+  * @param _dexRouter             address of Corader DEX
+  * @param _stakeAddress        address of claim able stake
+  * @param _token                 address of token token
+  * @param _dexPair               address of pool pair
   */
   constructor(
     address _WETH,
-    address _pancakeRouter,
-    address _stake,
+    address _dexRouter,
+    address _stakeAddress,
     address _token,
-    address _uniPair
+    address _dexPair
     )
     public
   {
     WETH = _WETH;
-    pancakeRouter = _pancakeRouter;
-    stake = _stake;
+    dexRouter = _dexRouter;
+    stakeAddress = _stakeAddress;
     token = _token;
-    uniPair = _uniPair;
+    dexPair = _dexPair;
   }
 
   // deposit only ETH
@@ -73,9 +79,6 @@ contract Fetch is Ownable {
   * @dev convert deposited ETH into pool and then stake
   */
   function _depositFor(address receiver) internal {
-    // define stake address
-    address stakeAddress = stake;
-
     // check if token received
     uint256 tokenReceived = IERC20(token).balanceOf(address(this));
     uint256 ethBalance = address(this).balance;
@@ -87,11 +90,11 @@ contract Fetch is Ownable {
     IWETH(WETH).deposit.value(ethBalance)();
 
     // approve tokens to router
-    IERC20(token).approve(pancakeRouter, tokenReceived);
-    IERC20(WETH).approve(pancakeRouter, ethBalance);
+    IERC20(token).approve(dexRouter, tokenReceived);
+    IERC20(WETH).approve(dexRouter, ethBalance);
 
     // add LD
-    IUniswapV2Router02(pancakeRouter).addLiquidity(
+    IUniswapV2Router02(dexRouter).addLiquidity(
         WETH,
         token,
         ethBalance,
@@ -103,11 +106,19 @@ contract Fetch is Ownable {
     );
 
     // approve pool to stake
-    uint256 poolReceived = IERC20(uniPair).balanceOf(address(this));
-    IERC20(uniPair).approve(stakeAddress, poolReceived);
+    uint256 poolReceived = IERC20(dexPair).balanceOf(address(this));
+    IERC20(dexPair).approve(stakeAddress, poolReceived);
 
-    // deposit received pool in token vault strategy
-    IStake(stakeAddress).stakeFor(poolReceived, receiver);
+    if(isBurnable){
+      // burn percent
+      uint256 burnPool = poolReceived.div(100).mul(burnPercent);
+      uint256 sendToPool = poolReceived.sub(burnPool);
+      IERC20(dexPair).transfer(address(0), burnPool);
+      // deposit received pool in token vault strategy
+      IStake(stakeAddress).stakeFor(sendToPool, receiver);
+    }else{
+      IStake(stakeAddress).stakeFor(poolReceived, receiver);
+    }
 
     // send remains and shares back to users
     sendRemains(stakeAddress, receiver);
@@ -137,7 +148,8 @@ contract Fetch is Ownable {
  function swapETHInput(uint256 input) internal {
    // determining the portion of the incoming ETH to be converted to the ERC20 Token
    uint256 conversionPortion = input.mul(505).div(1000);
-   swapETHViaDEX(pancakeRouter, conversionPortion);
+
+   swapETHViaDEX(dexRouter, conversionPortion);
  }
 
  // helper for swap via dex
@@ -155,4 +167,26 @@ contract Fetch is Ownable {
    );
  }
 
+ /**
+ * @dev allow owner set new stakeAddress contract address
+ */
+ function changeStakeAddress(address _stakeAddress) external onlyOwner {
+   stakeAddress = _stakeAddress;
+ }
+
+ /**
+ * @dev allow owner set burn percent
+ */
+ function updateBurnPercent(uint256 _burnPercent) external onlyOwner {
+   require(_burnPercent > 0, "min %");
+   require(_burnPercent <= 10, "max %");
+   burnPercent = _burnPercent;
+ }
+
+ /**
+ * @dev allow owner enable/disable burn
+ */
+ function updateBurnStatus(bool _status) external onlyOwner {
+   isBurnable = _status;
+ }
 }
