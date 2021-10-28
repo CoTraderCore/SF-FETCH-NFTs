@@ -177,7 +177,7 @@ describe('NFT', function() {
 
    it('NFT claim works after fetch depositETHAndERC20', async function() {
      assert.equal(await nft.balanceOf(userTwo), 0)
-     
+
      // buy some tokens from user two
      pancakeRouter.swapExactETHForTokens(
        1,
@@ -195,6 +195,26 @@ describe('NFT', function() {
    })
  })
 
+
+describe('Update burn status', function() {
+    it('Not owner can not call updateBurnStatus', async function() {
+      const statusBefore = await fetch.isBurnable()
+
+      await fetch.updateBurnStatus(
+        false,
+        { from:userTwo }
+      ).should.be.rejectedWith(EVMRevert)
+
+      assert.equal(statusBefore, await fetch.isBurnable())
+    })
+
+    it('Owner can call updateBurnStatus', async function() {
+      const statusBefore = await fetch.isBurnable()
+      await fetch.updateBurnStatus(false)
+      assert.notEqual(statusBefore, await fetch.isBurnable())
+      assert.equal(await fetch.isBurnable(), true)
+    })
+})
 
 describe('Update burn percent', function() {
     it('Not owner can not call updateBurnPercent', async function() {
@@ -250,7 +270,7 @@ describe('Update burn percent', function() {
       assert.notEqual(burnPool, 0)
       // stake should get more tahn burn
       assert.isTrue(stakePool > burnPool)
-      // burn shoukd get 10% by default
+      // burn shoukd get 5% now
       assert.equal(
         Number(fromWei(String(stakePool))).toFixed(4),
         Number(fromWei(String(burnPool * 19))).toFixed(4),
@@ -475,7 +495,7 @@ describe('DEPOSIT WITH token', function() {
   })
 
 describe('DEPOSIT ONLY BNB(ETH)', function() {
-    it('Convert input to pool and stake via token fetch and fetch send all shares and remains back to user', async function() {
+    it('Convert input to pool and stake via token fetch and fetch send all shares and remains back to user and burn 10% of pool', async function() {
       // user two not hold any pool before deposit
       assert.equal(Number(await pair.balanceOf(userTwo)), 0)
       // stake don't have any pool yet
