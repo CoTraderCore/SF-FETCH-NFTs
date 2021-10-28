@@ -158,6 +158,16 @@ contract('Fetch-test', function([userOne, userTwo, userThree]) {
       assert.equal(await stake.rewardsToken(), token.address)
       assert.equal(await stake.stakingToken(), pair.address)
     })
+
+    it('Correct isExcluded status for stake', async function() {
+      assert.equal(await token.isExcludedFromFee(stake.address), true)
+      assert.equal(await token.isExcludedFromTransferLimit(stake.address), true)
+    })
+
+    it('Correct isExcluded status for user', async function() {
+      assert.equal(await token.isExcludedFromFee(userTwo), false)
+      assert.equal(await token.isExcludedFromTransferLimit(userTwo), false)
+    })
 })
 
 describe('NFT', function() {
@@ -210,9 +220,11 @@ describe('Update burn status', function() {
 
     it('Owner can call updateBurnStatus', async function() {
       const statusBefore = await fetch.isBurnable()
+
       await fetch.updateBurnStatus(false)
+
       assert.notEqual(statusBefore, await fetch.isBurnable())
-      assert.equal(await fetch.isBurnable(), true)
+      assert.equal(await fetch.isBurnable(), false)
     })
 })
 
