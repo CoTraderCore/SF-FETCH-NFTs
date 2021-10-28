@@ -2,15 +2,17 @@
 ```
 0) SafeMoon based token
 
-1) NFT => allow Stake mint
+1) NFT => allow Stake contract mint
 
-2) SF token with ExcludedFromTransferLimit for manage stake limit
+2) User can get NFT in 2 ways. Via stake and get rewards one time per address (proof of stake) or just buy from stake
 
-3) + burn % of pool share in fetch
+3) SF token with ExcludedFromTransferLimit for manage stake limit
 
-4) enable/disable burn in fetch
+4) Burn % of pool share in fetch deposits
 
-5) fetch without sale
+5) Enable/disable burn in fetch
+
+6) Fetch without sale 
 ```
 
 
