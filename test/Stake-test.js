@@ -27,6 +27,8 @@ const NFTPrice = toWei("1")
 
 const Beneficiary = "0x6ffFe11A5440fb275F30e0337Fc296f938a287a5"
 
+const stakeDuration = duration.days(30)
+
 let uniswapV2Factory,
     uniswapV2Router,
     weth,
@@ -67,7 +69,7 @@ contract('Stake', function([userOne, userTwo, userThree]) {
       token.address,
       pair.address,
       nft.address,
-      duration.days(30),
+      stakeDuration,
       100,
       NFTPrice,
       userOne
@@ -260,7 +262,7 @@ contract('Stake', function([userOne, userTwo, userThree]) {
       // shares should be same as stake
       const shares = await stake.balanceOf(userOne)
       assert.equal(Number(shares), Number(toStake))
-      await timeMachine.advanceTimeAndBlock(duration.days(31))
+      await timeMachine.advanceTimeAndBlock(stakeDuration + duration.days(1))
       // exit
       await stake.exit()
       // stake should send all pools
@@ -297,7 +299,7 @@ contract('Stake', function([userOne, userTwo, userThree]) {
       await pair.approve(stake.address, toStake)
       await stake.stake(toStake)
       // increase time
-      await timeMachine.advanceTimeAndBlock(duration.days(31))
+      await timeMachine.advanceTimeAndBlock(stakeDuration + duration.days(1))
       assert.equal(
         Number(await stake.earned(userOne)),
         Number(await stake.earnedByShare(await stake.balanceOf(userOne)))
@@ -340,7 +342,7 @@ contract('Stake', function([userOne, userTwo, userThree]) {
       await pair.approve(stake.address, toWei(String(2)))
       await stake.stakeFor(toWei(String(1)), userOne)
       await stake.stakeFor(toWei(String(1)), userTwo)
-      await timeMachine.advanceTimeAndBlock(duration.days(31))
+      await timeMachine.advanceTimeAndBlock(stakeDuration + duration.days(1))
 
       assert.equal(
         Number(await stake.earned(userOne)),
@@ -352,10 +354,10 @@ contract('Stake', function([userOne, userTwo, userThree]) {
       assert.equal(Number(await token.balanceOf(userTwo)), 0)
 
       // exit
-      await timeMachine.advanceTimeAndBlock(duration.days(31))
+      await timeMachine.advanceTimeAndBlock(stakeDuration + duration.days(1))
       await stake.exit( {from:userOne} )
 
-      await timeMachine.advanceTimeAndBlock(duration.days(31))
+      await timeMachine.advanceTimeAndBlock(stakeDuration + duration.days(1))
       await stake.exit( {from:userTwo} )
 
       assert.isTrue(Number(await token.balanceOf(userTwo)) > 0)
