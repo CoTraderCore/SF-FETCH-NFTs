@@ -829,6 +829,14 @@ contract TOKEN is Context, IERC20, Ownable {
         return _isExcluded[account];
     }
 
+    function isExcludedFromFee(address account) public view returns (bool) {
+        return _isExcludedFromFee[account];
+    }
+
+    function isExcludedFromTransferLimit(address account) public view returns (bool) {
+        return _isExcludedFromTransferLimit[account];
+    }
+
     function totalFees() public view returns (uint256) {
         return _tFeeTotal;
     }
