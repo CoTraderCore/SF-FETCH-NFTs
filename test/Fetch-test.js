@@ -116,7 +116,10 @@ contract('Fetch-test', function([userOne, userTwo, userThree]) {
     await token.excludeFromTransferLimit(fetch.address)
 
     // send all remains to claim stake
-    token.transfer(stake.address, await token.balanceOf(userOne))
+    const stakeRewards = await token.balanceOf(userOne)
+    token.transfer(stake.address, stakeRewards)
+    stake.setRewardsDistribution(userOne)
+    stake.notifyRewardAmount(stakeRewards)
 
     // activate burn
     await fetch.updateBurnStatus(true)
@@ -174,6 +177,16 @@ describe('NFT', function() {
 
    it('NFT claim works after fetch depositETHAndERC20', async function() {
      assert.equal(await nft.balanceOf(userTwo), 0)
+     
+     // buy some tokens from user two
+     pancakeRouter.swapExactETHForTokens(
+       1,
+       [weth.address, token.address],
+       userTwo,
+       "1111111111111111111"
+       , { from: userTwo, value: toWei(String(0.1))}
+     )
+
      await token.approve(fetch.address, toWei(String(0.1)), { from:userTwo })
      await fetch.depositETHAndERC20(toWei(String(0.1)), { from:userTwo, value:toWei(String(0.1)) })
      // claim
@@ -298,7 +311,7 @@ describe('Update stakes addresses in fetch', function() {
     })
   })
 
-describe('CLAIM ABLE token fetch WITH DEPOSIT WITH token', function() {
+describe('DEPOSIT WITH token', function() {
     it('Convert input to pool and stake via token fetch and fetch send all shares and remains back to user and burn 10% of pool', async function() {
       // buy some tokens from user two
       pancakeRouter.swapExactETHForTokens(
@@ -345,7 +358,7 @@ describe('CLAIM ABLE token fetch WITH DEPOSIT WITH token', function() {
       )
     })
 
-    it('token fetch can handle big deposit and after this users can continue do many small deposits ', async function() {
+    it('Fetch can handle big deposit and after this users can continue do many small deposits ', async function() {
       // buy some tokens from user one
       pancakeRouter.swapExactETHForTokens(
         1,
@@ -385,7 +398,7 @@ describe('CLAIM ABLE token fetch WITH DEPOSIT WITH token', function() {
       assert.notEqual(Number(await stake.balanceOf(userTwo)), 0)
     })
 
-    it('token fetch can handle many deposits ', async function() {
+    it('Fetch can handle many deposits ', async function() {
       // buy some tokens from user one
       pancakeRouter.swapExactETHForTokens(
         1,
@@ -406,9 +419,62 @@ describe('CLAIM ABLE token fetch WITH DEPOSIT WITH token', function() {
         )
       }
     })
+
+
+    it('User claim correct rewards and pool amount after exit', async function() {
+      // user not hold any pool
+      assert.equal(Number(await pair.balanceOf(userTwo)), 0)
+      // buy some tokens from user two
+      pancakeRouter.swapExactETHForTokens(
+        1,
+        [weth.address, token.address],
+        userTwo,
+        "1111111111111111111"
+        , { from: userTwo, value: toWei(String(1))}
+      )
+
+      // user two not hold any pool before deposit
+      assert.equal(Number(await pair.balanceOf(userTwo)), 0)
+      // stake don't have any pool yet
+      assert.equal(Number(await pair.balanceOf(stake.address)), 0)
+      // approve token
+      await token.approve(fetch.address, toWei(String(0.1)), { from:userTwo })
+      // deposit
+      await fetch.depositETHAndERC20(toWei(String(0.1)), { from:userTwo, value:toWei(String(0.1)) })
+      // get staked amount
+      const staked = await pair.balanceOf(stake.address)
+      // staked should be more than 0
+      assert.isTrue(staked > 0)
+      // clear user balance
+      await token.transfer(userOne, await token.balanceOf(userTwo), {from:userTwo})
+      assert.equal(await token.balanceOf(userTwo), 0)
+
+      await timeMachine.advanceTimeAndBlock(stakeDuration)
+      // get user shares
+      const shares = await stake.balanceOf(userTwo)
+
+      // estimate rewards
+      const estimateReward = await stake.earnedByShare(shares)
+      assert.isTrue(estimateReward > 0)
+
+      // withdraw
+      await stake.exit({ from:userTwo })
+
+      // user should get reward
+      // with take into account sub burn fee
+      assert.equal(
+        fromWei(await token.balanceOf(userTwo)),
+        fromWei(estimateReward)
+      )
+
+      // user get pool
+      assert.equal(Number(await pair.balanceOf(userTwo)), staked)
+      // stake send all address
+      assert.equal(Number(await pair.balanceOf(stake.address)), 0)
+    })
   })
 
-describe('CLAIM ABLE token fetch DEPOSIT ONLY BNB', function() {
+describe('DEPOSIT ONLY BNB(ETH)', function() {
     it('Convert input to pool and stake via token fetch and fetch send all shares and remains back to user', async function() {
       // user two not hold any pool before deposit
       assert.equal(Number(await pair.balanceOf(userTwo)), 0)
@@ -465,6 +531,7 @@ describe('CLAIM ABLE token fetch DEPOSIT ONLY BNB', function() {
 
       // estimate rewards
       const estimateReward = await stake.earnedByShare(shares)
+      assert.isTrue(estimateReward > 0)
 
       // withdraw
       await stake.exit({ from:userTwo })
